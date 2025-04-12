@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/api': 'http://localhost:3000', // Adjust this to match your backend server's port
+      '/api': 'http://localhost:3000',
     },
   },
 })

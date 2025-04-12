@@ -39,7 +39,7 @@ async function downloadImage(url, filepath) {
 // 导入数据并下载图片
 (async () => {
   for (const video of data) {
-    const imgPath = path.join(__dirname, 'images', `${video.jid}.jpg`);
+    const imgPath = path.join('images', `${video.jid}.jpg`);
     try {
       // 插入数据到数据库（如果 jid 已存在，则跳过）
       db.run(

@@ -20,25 +20,6 @@ app.use(
 
 // 初始化数据库
 db.serialize(() => {
-  // 用户表
-  db.run(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      password TEXT NOT NULL,
-      is_admin INTEGER NOT NULL DEFAULT 0
-    )
-  `);
-
-  // 影片表
-  db.run(`
-    CREATE TABLE IF NOT EXISTS videos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      jid TEXT NOT NULL UNIQUE,
-      jimg TEXT NOT NULL,
-      jtitle TEXT NOT NULL
-    )
-  `);
 
   // 插入一个默认管理员账号（如果不存在）
   db.get(`SELECT * FROM users WHERE username = 'admin'`, (err, user) => {
@@ -85,12 +66,12 @@ app.post('/api/login', (req, res) => {
     if (!user) return res.status(404).send('用户不存在');
 
     bcrypt.compare(password, user.password, (err, same) => {
-      if (err) return res.status(500).send('密码验证错误');
+      if (err) return res.status(500).json({ success: false, message: '密码验证错误' });
       if (same) {
         req.session.user = { id: user.id, username: user.username, is_admin: user.is_admin };
-        res.send('登录成功');
+        res.json({ success: true, message: '登录成功', user: req.session.user });
       } else {
-        res.status(401).send('密码错误');
+        res.status(401).json({ success: false, message: '密码错误' });
       }
     });
   });
@@ -99,16 +80,16 @@ app.post('/api/login', (req, res) => {
 // 登出接口
 app.post('/api/logout', isAuthenticated, (req, res) => {
   req.session.destroy((err) => {
-    if (err) return res.status(500).send('登出失败');
-    res.send('登出成功');
+    if (err) return res.status(500).json({ success: false, message: '登出失败' });
+    res.json({ success: true, message: '登出成功' });
   });
 });
 
 // 获取所有影片
 app.get('/api/videos', isAuthenticated, (req, res) => {
   db.all('SELECT * FROM videos', (err, rows) => {
-    if (err) return res.status(500).send('数据库错误');
-    res.json(rows);
+    if (err) return res.status(500).json({ success: false, message: '数据库错误' });
+    res.json({ success: true, data: rows });
   });
 });
 
@@ -117,12 +98,16 @@ app.post('/api/videos', isAuthenticated, isAdmin, (req, res) => {
   const { jid, jimg, jtitle } = req.body;
 
   if (!jid || !jimg || !jtitle) {
-    return res.status(400).send('所有字段都不能为空');
+    return res.status(400).json({ success: false, message: '所有字段都不能为空' });
   }
 
   db.run('INSERT INTO videos (jid, jimg, jtitle) VALUES (?, ?, ?)', [jid, jimg, jtitle], function (err) {
-    if (err) return res.status(500).send('数据库错误或影片 ID 已存在');
-    res.send({ id: this.lastID, jid, jimg, jtitle });
+    if (err) return res.status(500).json({ success: false, message: '数据库错误或影片 ID 已存在' });
+    res.json({
+      success: true,
+      message: '影片添加成功',
+      data: { id: this.lastID, jid, jimg, jtitle },
+    });
   });
 });
 
@@ -132,13 +117,13 @@ app.put('/api/videos/:id', isAuthenticated, isAdmin, (req, res) => {
   const { jid, jimg, jtitle } = req.body;
 
   if (!jid || !jimg || !jtitle) {
-    return res.status(400).send('所有字段都不能为空');
+    return res.status(400).json({ success: false, message: '所有字段都不能为空' });
   }
 
   db.run('UPDATE videos SET jid = ?, jimg = ?, jtitle = ? WHERE id = ?', [jid, jimg, jtitle, id], function (err) {
-    if (err) return res.status(500).send('数据库错误');
-    if (this.changes === 0) return res.status(404).send('影片不存在');
-    res.send('影片更新成功');
+    if (err) return res.status(500).json({ success: false, message: '数据库错误' });
+    if (this.changes === 0) return res.status(404).json({ success: false, message: '影片不存在' });
+    res.json({ success: true, message: '影片更新成功' });
   });
 });
 
@@ -147,9 +132,9 @@ app.delete('/api/videos/:id', isAuthenticated, isAdmin, (req, res) => {
   const { id } = req.params;
 
   db.run('DELETE FROM videos WHERE id = ?', [id], function (err) {
-    if (err) return res.status(500).send('数据库错误');
-    if (this.changes === 0) return res.status(404).send('影片不存在');
-    res.send('影片删除成功');
+    if (err) return res.status(500).json({ success: false, message: '数据库错误' });
+    if (this.changes === 0) return res.status(404).json({ success: false, message: '影片不存在' });
+    res.json({ success: true, message: '影片删除成功' });
   });
 });
 

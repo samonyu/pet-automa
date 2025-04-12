@@ -1,9 +1,5 @@
 <template>
-  <div id="app">
-    <h1>Pet Automa</h1>
-    <router-link to="/">Home</router-link> 
-    <router-view />
-  </div>
+  <router-view />
 </template>
 
 <script>
