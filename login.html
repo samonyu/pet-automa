@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录页面</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .login-container {
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 300px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.5rem;
+      margin-bottom: 20px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    .error {
+      color: red;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="login-container">
+    <h1>登录</h1>
+    <form @submit.prevent="login">
+      <input type="text" v-model="username" placeholder="用户名" required>
+      <input type="password" v-model="password" placeholder="密码" required>
+      <button type="submit">登录</button>
+      <p class="error" v-if="errorMessage">{{ errorMessage }}</p>
+    </form>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          username: '',
+          password: '',
+          errorMessage: '',
+        };
+      },
+      methods: {
+        async login() {
+          try {
+            const response = await fetch('/login', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ username: this.username, password: this.password }),
+            });
+
+            if (response.ok) {
+              // 登录成功，跳转到列表页面
+              window.location.href = '/list.html';
+            } else {
+              const errorText = await response.text();
+              this.errorMessage = errorText || '登录失败';
+            }
+          } catch (error) {
+            this.errorMessage = '无法连接到服务器';
+          }
+        },
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>

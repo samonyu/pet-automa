@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vue.js + Express App</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f4f4f9;
+    }
+
+    .app-container {
+      max-width: 800px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+
+    .actions button {
+      margin: 0 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .add-record {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+
+    .add-record input {
+      flex-grow: 1;
+      padding: 10px;
+      margin-right: 10px;
+    }
+
+    .add-record button {
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="app-container">
+    <h1>记录管理</h1>
+
+    <div class="add-record">
+      <input v-model="newRecord" placeholder="输入新记录">
+      <button @click="addRecord">添加</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>内容</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="record in records" :key="record.id">
+          <td>{{ record.id }}</td>
+          <td>{{ record.content }}</td>
+          <td class="actions">
+            <button @click="editRecord(record)">编辑</button>
+            <button @click="deleteRecord(record.id)">删除</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          records: [],
+          newRecord: '',
+        };
+      },
+      methods: {
+        async fetchRecords() {
+          const response = await fetch('/records');
+          this.records = await response.json();
+        },
+        async addRecord() {
+          if (!this.newRecord) return;
+          await fetch('/records', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: this.newRecord }),
+          });
+          this.newRecord = '';
+          this.fetchRecords();
+        },
+        async editRecord(record) {
+          const newContent = prompt('编辑记录', record.content);
+          if (!newContent) return;
+          await fetch(`/records/${record.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: newContent }),
+          });
+          this.fetchRecords();
+        },
+        async deleteRecord(id) {
+          if (!confirm('确定删除这条记录吗？')) return;
+          await fetch(`/records/${id}`, { method: 'DELETE' });
+          this.fetchRecords();
+        },
+      },
+      mounted() {
+        this.fetchRecords();
+      },
+    }).mount('#app');
+  </script>
+</body>
+</html>

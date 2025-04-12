@@ -3,15 +3,13 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const bcrypt = require('bcrypt');
 const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
 
 const app = express();
 const db = new sqlite3.Database('data.db');
 
-// 中间件
+// 中间件配置
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static('images')); // 提供图片静态资源
 app.use(
   session({
     secret: 'secret-key', // 替换为更安全的密钥
@@ -20,9 +18,46 @@ app.use(
   })
 );
 
+// 初始化数据库
+db.serialize(() => {
+  // 用户表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // 记录表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      content TEXT NOT NULL
+    )
+  `);
+
+  // 插入一个默认管理员账号（如果不存在）
+  db.get(`SELECT * FROM users WHERE username = 'admin'`, (err, user) => {
+    if (!user) {
+      bcrypt.hash('admin_password', 10, (err, hash) => {
+        if (err) throw err;
+        db.run(
+          `INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)`,
+          ['admin', hash, 1]
+        );
+        console.log('默认管理员账号已创建，用户名: admin, 密码: admin_password');
+      });
+    }
+  });
+});
+
 // 鉴权中间件
 function isAuthenticated(req, res, next) {
-  if (req.session.user) return next();
+  if (req.session.user) {
+    return next();
+  }
   res.status(401).send('未授权，请先登录');
 }
 
@@ -37,6 +72,7 @@ function isAdmin(req, res, next) {
 // 登录接口
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
+
   db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
     if (err) return res.status(500).send('数据库错误');
     if (!user) return res.status(404).send('用户不存在');
@@ -61,81 +97,52 @@ app.post('/logout', isAuthenticated, (req, res) => {
   });
 });
 
-// 用户注册接口（仅管理员可用）
-app.post('/register', isAuthenticated, isAdmin, (req, res) => {
-  const { username, password, is_admin } = req.body;
-
-  bcrypt.hash(password, 10, (err, hash) => {
-    if (err) return res.status(500).send('密码加密错误');
-    db.run(
-      `INSERT INTO users (username, password, is_admin) VALUES (?, ?, ?)`,
-      [username, hash, is_admin ? 1 : 0],
-      function (err) {
-        if (err) return res.status(500).send('数据库错误');
-        res.send('用户注册成功');
-      }
-    );
-  });
-});
-
-// 获取所有用户（仅管理员可用）
-app.get('/users', isAuthenticated, isAdmin, (req, res) => {
-  db.all('SELECT id, username, is_admin FROM users', (err, rows) => {
+// 获取所有记录
+app.get('/records', isAuthenticated, (req, res) => {
+  db.all('SELECT * FROM records', (err, rows) => {
     if (err) return res.status(500).send('数据库错误');
     res.json(rows);
   });
 });
 
-// 删除用户（仅管理员可用）
-app.delete('/users/:id', isAuthenticated, isAdmin, (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM users WHERE id = ?`, [id], function (err) {
+// 添加记录
+app.post('/records', isAuthenticated, isAdmin, (req, res) => {
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).send('内容不能为空');
+  }
+
+  db.run('INSERT INTO records (content) VALUES (?)', [content], function (err) {
     if (err) return res.status(500).send('数据库错误');
-    res.send('用户删除成功');
+    res.send({ id: this.lastID, content });
   });
 });
 
-// 获取所有视频
-app.get('/videos', isAuthenticated, (req, res) => {
-  db.all('SELECT * FROM videos', (err, rows) => {
+// 修改记录
+app.put('/records/:id', isAuthenticated, isAdmin, (req, res) => {
+  const { id } = req.params;
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).send('内容不能为空');
+  }
+
+  db.run('UPDATE records SET content = ? WHERE id = ?', [content, id], function (err) {
     if (err) return res.status(500).send('数据库错误');
-    res.json(rows);
+    if (this.changes === 0) return res.status(404).send('记录不存在');
+    res.send('记录更新成功');
   });
 });
 
-// 新增视频（仅管理员可用）
-app.post('/videos', isAuthenticated, isAdmin, (req, res) => {
-  const { jid, jimg, jtitle } = req.body;
-  db.run(
-    `INSERT INTO videos (jid, jimg, jtitle) VALUES (?, ?, ?)`,
-    [jid, jimg, jtitle],
-    function (err) {
-      if (err) return res.status(500).send('数据库错误');
-      res.send('视频新增成功');
-    }
-  );
-});
-
-// 更新视频（仅管理员可用）
-app.put('/videos/:id', isAuthenticated, isAdmin, (req, res) => {
+// 删除记录
+app.delete('/records/:id', isAuthenticated, isAdmin, (req, res) => {
   const { id } = req.params;
-  const { jid, jimg, jtitle } = req.body;
-  db.run(
-    `UPDATE videos SET jid = ?, jimg = ?, jtitle = ? WHERE id = ?`,
-    [jid, jimg, jtitle, id],
-    function (err) {
-      if (err) return res.status(500).send('数据库错误');
-      res.send('视频更新成功');
-    }
-  );
-});
 
-// 删除视频（仅管理员可用）
-app.delete('/videos/:id', isAuthenticated, isAdmin, (req, res) => {
-  const { id } = req.params;
-  db.run(`DELETE FROM videos WHERE id = ?`, [id], function (err) {
+  db.run('DELETE FROM records WHERE id = ?', [id], function (err) {
     if (err) return res.status(500).send('数据库错误');
-    res.send('视频删除成功');
+    if (this.changes === 0) return res.status(404).send('记录不存在');
+    res.send('记录删除成功');
   });
 });
 
