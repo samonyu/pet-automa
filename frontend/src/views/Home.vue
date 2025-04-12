@@ -7,8 +7,8 @@ onMounted(async () => {
   try {
     const res = await fetch('/api/videos');
     const data = await res.json();
-    if (json.success) {
-      videos.value = json.data; 
+    if (data.success) {
+      videos.value = data.data; 
     } else {
       console.error('API 返回失败:', json);
     }
@@ -70,7 +70,7 @@ h2 {
 
 .video-thumbnail {
   width: 100%;
-  height: 160px;
+  height: auto;
   object-fit: cover;
 }
 
