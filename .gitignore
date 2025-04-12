@@ -31,3 +31,5 @@ dist-ssr
 *.sw?
 *.xcodeproj
 data.db
+
+pet-automa/
