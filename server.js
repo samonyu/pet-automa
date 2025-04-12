@@ -20,6 +20,25 @@ app.use(
 
 // 初始化数据库
 db.serialize(() => {
+  // 用户表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // 影片表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS videos (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      jid TEXT NOT NULL UNIQUE,
+      jimg TEXT NOT NULL,
+      jtitle TEXT NOT NULL
+    )
+  `);
 
   // 插入一个默认管理员账号（如果不存在）
   db.get(`SELECT * FROM users WHERE username = 'admin'`, (err, user) => {
