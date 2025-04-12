@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vue.js + Express App</title>
+  <title>影片展示</title>
   <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
   <style>
     body {
@@ -14,7 +14,6 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
       background-color: #f4f4f9;
     }
 
@@ -30,72 +29,83 @@
       text-align: center;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .video-card {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-card img {
+      max-width: 100px;
+      border-radius: 5px;
+      margin-right: 20px;
+    }
+
+    .video-card .info {
+      flex-grow: 1;
+    }
+
+    .video-card button {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      background-color: #ff4d4f;
+      color: white;
+    }
+
+    .add-video {
+      display: flex;
+      flex-direction: column;
       margin-top: 20px;
     }
 
-    table, th, td {
-      border: 1px solid #ccc;
-    }
-
-    th, td {
+    .add-video input {
+      margin-bottom: 10px;
       padding: 10px;
-      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
 
-    .actions button {
-      margin: 0 5px;
-      padding: 5px 10px;
+    .add-video button {
+      padding: 10px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
       cursor: pointer;
     }
 
-    .add-record {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
-
-    .add-record input {
-      flex-grow: 1;
-      padding: 10px;
-      margin-right: 10px;
-    }
-
-    .add-record button {
-      padding: 10px;
+    .add-video button:hover {
+      background-color: #45a049;
     }
   </style>
 </head>
+
 <body>
   <div id="app" class="app-container">
-    <h1>记录管理</h1>
+    <h1>影片展示</h1>
 
-    <div class="add-record">
-      <input v-model="newRecord" placeholder="输入新记录">
-      <button @click="addRecord">添加</button>
+    <div v-for="video in videos" :key="video.id" class="video-card">
+      <img :src="video.jimg" :alt="video.jtitle" />
+      <div class="info">
+        <h2>{{ video.jtitle }}</h2>
+        <p>ID: {{ video.jid }}</p>
+      </div>
+      <button @click="deleteVideo(video.id)">删除</button>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>内容</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="record in records" :key="record.id">
-          <td>{{ record.id }}</td>
-          <td>{{ record.content }}</td>
-          <td class="actions">
-            <button @click="editRecord(record)">编辑</button>
-            <button @click="deleteRecord(record.id)">删除</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="add-video">
+      <h2>添加影片</h2>
+      <input v-model="newVideo.jid" placeholder="影片 ID (jid)" />
+      <input v-model="newVideo.jimg" placeholder="图片 URL (jimg)" />
+      <input v-model="newVideo.jtitle" placeholder="影片标题 (jtitle)" />
+      <button @click="addVideo">添加</button>
+    </div>
   </div>
 
   <script>
@@ -104,43 +114,66 @@
     createApp({
       data() {
         return {
-          records: [],
-          newRecord: '',
+          videos: [],
+          newVideo: {
+            jid: '',
+            jimg: '',
+            jtitle: '',
+          },
         };
       },
       methods: {
-        async fetchRecords() {
-          const response = await fetch('/records');
-          this.records = await response.json();
+        async fetchVideos() {
+          try {
+            const response = await fetch('/api/videos');
+            this.videos = await response.json();
+          } catch (error) {
+            alert('无法加载影片数据');
+          }
         },
-        async addRecord() {
-          if (!this.newRecord) return;
-          await fetch('/records', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: this.newRecord }),
-          });
-          this.newRecord = '';
-          this.fetchRecords();
+        async addVideo() {
+          if (!this.newVideo.jid || !this.newVideo.jimg || !this.newVideo.jtitle) {
+            alert('请填写所有字段');
+            return;
+          }
+
+          try {
+            const response = await fetch('/api/videos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.newVideo),
+            });
+
+            if (response.ok) {
+              this.newVideo = { jid: '', jimg: '', jtitle: '' };
+              this.fetchVideos();
+            } else {
+              const errorText = await response.text();
+              alert(`添加失败: ${errorText}`);
+            }
+          } catch (error) {
+            alert('无法添加影片');
+          }
         },
-        async editRecord(record) {
-          const newContent = prompt('编辑记录', record.content);
-          if (!newContent) return;
-          await fetch(`/records/${record.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: newContent }),
-          });
-          this.fetchRecords();
-        },
-        async deleteRecord(id) {
-          if (!confirm('确定删除这条记录吗？')) return;
-          await fetch(`/records/${id}`, { method: 'DELETE' });
-          this.fetchRecords();
+        async deleteVideo(id) {
+          if (!confirm('确定删除这部影片吗？')) return;
+
+          try {
+            const response = await fetch(`/api/videos/${id}`, { method: 'DELETE' });
+
+            if (response.ok) {
+              this.fetchVideos();
+            } else {
+              const errorText = await response.text();
+              alert(`删除失败: ${errorText}`);
+            }
+          } catch (error) {
+            alert('无法删除影片');
+          }
         },
       },
       mounted() {
-        this.fetchRecords();
+        this.fetchVideos();
       },
     }).mount('#app');
   </script>
